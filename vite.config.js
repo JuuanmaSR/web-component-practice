@@ -13,4 +13,7 @@ export default defineConfig({
       fileName: (format) => `chat-widget.${format}.js`,
     },
   },
+  define: {
+    'process.env.NODE_ENV': JSON.stringify('production'),
+  }
 })
