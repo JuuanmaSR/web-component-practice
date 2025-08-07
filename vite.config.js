@@ -12,7 +12,5 @@ export default defineConfig({
       name: 'ChatWidget',
       fileName: (format) => `chat-widget.${format}.js`,
     },
-    rollupOptions: {
-    },
   },
 })
