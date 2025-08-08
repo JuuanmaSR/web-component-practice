@@ -1,12 +1,17 @@
 import { css } from "@emotion/react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "./Button";
-import { getNews } from "../api/newsApi";
+import { useChat } from "../hooks/useChat";
+// import { useNew } from "../hooks/useNew";
+import { getResponseStream } from "../api/openAiApi";
 
 export const ChatWidget = () => {
   const [message, setMessage] = useState("");
   const [isTiping, setIsTiping] = useState(false);
-  const [chatHistory, setChatHistory] = useState([]);
+  const [currentAssistantMessage, setCurrentAssistantMessage] = useState("");
+  const { addMessage, updateLastMessageValue, chat } = useChat();
+  const chatContainerRef = useRef(null);
+  // const { getNews } = useNew();
 
   const handleMessageChange = (e) => {
     setMessage(e.target.value);
@@ -15,23 +20,29 @@ export const ChatWidget = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (message.length === 0) return;
-    setChatHistory((prevChatHistory) => [
-      ...prevChatHistory,
-      { type: "user", value: message },
-    ]);
+    const userMessage = message;
+    addMessage({ value: userMessage, role: "user" });
     setMessage("");
     setIsTiping(false);
+    const assistantMessagePlaceholder = { value: "...", role: "assistant" };
+    addMessage(assistantMessagePlaceholder);
+    let reply = "";
     try {
-      const { articles } = await getNews({ search: message });
-      setChatHistory((prevChatHistory) => [
-        ...prevChatHistory,
-        { type: "bot", value: articles },
-      ]);
+      await getResponseStream({
+        onNewMessageChunk: (chunk) => {
+          setCurrentAssistantMessage((prev) => prev + chunk);
+          reply += chunk;
+        },
+        question: userMessage,
+      });
+
+      updateLastMessageValue(reply);
+
+      setCurrentAssistantMessage("");
     } catch (error) {
-      console.log(error);
+      console.error("Error durante el streaming:", error);
     }
   };
-
   useEffect(() => {
     if (message.length > 0) {
       setIsTiping(true);
@@ -39,6 +50,23 @@ export const ChatWidget = () => {
       setIsTiping(false);
     }
   }, [message]);
+
+  useEffect(() => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollIntoView({
+        behavior: "smooth",
+        block: "end",
+      });
+    }
+  }, [chat]);
+  useEffect(() => {
+    // También es importante para el mensaje en streaming
+    // Ya que se re-renderiza y el chat debe seguirlo
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop =
+        chatContainerRef.current.scrollHeight;
+    }
+  }, [currentAssistantMessage]);
 
   return (
     <div
@@ -55,6 +83,7 @@ export const ChatWidget = () => {
     >
       <div
         className="screen"
+        ref={chatContainerRef}
         css={css`
           height: 100%;
           padding: 10px;
@@ -66,14 +95,14 @@ export const ChatWidget = () => {
           background-color: var(--gris-100);
         `}
       >
-        {chatHistory.map((message, index) => (
+        {chat.map((message, index) => (
           <div
             key={index}
             css={css`
               display: flex;
               flex-direction: column;
               width: 100%;
-              align-items: ${message.type === "user"
+              align-items: ${message.role === "user"
                 ? "flex-end"
                 : "flex-start"};
               margin-bottom: 10px;
@@ -92,27 +121,27 @@ export const ChatWidget = () => {
                   margin-right: 5px;
                 `}
               >
-                {message.type === "user" ? "Tu" : "Bot"}
+                {message.role === "user" ? "Tu" : "Assistant"}
               </span>
             </div>
             <div
               css={css`
-                background-color: ${message.type === "user"
+                background-color: ${message.role === "user"
                   ? "var(--primary-color)"
                   : "var(--gris-95)"};
-                color: ${message.type === "user"
+                color: ${message.role === "user"
                   ? "var(--gris-100)"
                   : "var(--gris-0)"};
                 padding: 16px;
-                border-radius: ${message.type === "user"
+                border-radius: ${message.role === "user"
                   ? "16px 0px 16px 16px"
                   : "0px 16px 16px 16px"};
                 max-width: 80%;
                 word-wrap: break-word;
               `}
             >
-              {message.type === "user" && message.value}
-              {message.type === "bot" &&
+              {message.role === "user" && message.value}
+              {message.role === "bot" &&
                 message.value?.map((article, index) => (
                   <div
                     css={css`
@@ -173,9 +202,25 @@ export const ChatWidget = () => {
                     </div>
                   </div>
                 ))}
+              {message.role === "assistant" && message.value}
             </div>
           </div>
         ))}
+        {currentAssistantMessage && (
+          <div
+            css={css`
+              background-color: var(--gris-100);
+              padding: 16px;
+              border-radius: 16px;
+              max-width: 100%;
+              word-wrap: break-word;
+              margin-bottom: 10px;
+              box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
+            `}
+          >
+            <p>{currentAssistantMessage}</p>
+          </div>
+        )}
       </div>
       <form
         css={css`

@@ -8,7 +8,7 @@ const newsApi = axios.create({
 });
 
 
-export const getNews = async ({ search }) => {
+export const get = async ({ search }) => {
     const { data } = await newsApi.get('everything', {
         params: {
             q: search,
