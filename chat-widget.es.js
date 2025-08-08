@@ -13340,7 +13340,7 @@ const {
   formToJSON: Up,
   getAdapter: Np,
   mergeConfig: Cp
-} = Ct, sp = void 0, op = "https://newsapi.org/v2/", dp = Ct.create({
+} = Ct, sp = "", op = "https://newsapi.org/v2/", dp = Ct.create({
   baseURL: op
 }), hp = async ({ search: u }) => {
   const { data: c } = await dp.get("everything", {
