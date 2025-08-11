@@ -1,10 +1,14 @@
+import { createParser } from "eventsource-parser";
+const BASE_URL = 'https://openrouter.ai/api/v1';
+const API_KEY = import.meta.env.VITE_OPENAI_API_KEY;
+
 export const getResponseStream = async ({ onNewMessageChunk, question }) => {
 
 
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const response = await fetch(`${BASE_URL}/chat/completions`, {
         method: 'POST',
         headers: {
-            Authorization: `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`,
+            Authorization: `Bearer ${API_KEY}`,
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -14,48 +18,45 @@ export const getResponseStream = async ({ onNewMessageChunk, question }) => {
         }),
     });
 
+    let streamRunning = true;
     const reader = response.body?.getReader();
     if (!reader) {
         throw new Error('Response body is not readable');
     }
 
     const decoder = new TextDecoder();
-    let buffer = '';
-
-    try {
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            // Append new chunk to buffer
-            buffer += decoder.decode(value, { stream: true });
-
-            // Process complete lines from buffer
-            while (true) {
-                const lineEnd = buffer.indexOf('\n');
-                if (lineEnd === -1) break;
-
-                const line = buffer.slice(0, lineEnd).trim();
-                buffer = buffer.slice(lineEnd + 1);
-
-                if (line.startsWith('data: ')) {
-                    const data = line.slice(6);
-                    if (data === '[DONE]') break;
-
-                    try {
-                        const parsed = JSON.parse(data);
-                        const content = parsed.choices[0].delta.content ?? '';
-                        if (content) {
-                            onNewMessageChunk(content);
-                        }
-                    } catch (e) {
-                        console.error(e);
+    const parser = createParser({
+        onEvent: (event) => {
+            const data = event.data;
+            if (data === '[DONE]') {
+                streamRunning = false;
+                return;
+            } else {
+                try {
+                    const json = JSON.parse(data);
+                    const content = json.choices[0].delta.content ?? '';
+                    if (content) {
+                        onNewMessageChunk(content);
                     }
+                } catch (error) {
+                    console.error("Error parsing JSON:", error);
                 }
             }
+        },
+    });
+
+    try {
+        while (streamRunning) {
+            const { done, value } = await reader.read();
+            if (done) {
+                break;
+            }
+            const chunk = decoder.decode(value);
+            parser.feed(chunk);
         }
-    } finally {
-        reader.cancel();
+    } catch (error) {
+        console.error("Error durante el streaming:", error);
     }
+
 }
 

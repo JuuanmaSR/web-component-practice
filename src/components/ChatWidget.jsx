@@ -1,8 +1,7 @@
 import { css } from "@emotion/react";
 import { useEffect, useRef, useState } from "react";
-import { Button } from "./Button";
+import { IconButton, TextField, Card, Box } from "@mui/material";
 import { useChat } from "../hooks/useChat";
-// import { useNew } from "../hooks/useNew";
 import { getResponseStream } from "../api/openAiApi";
 
 export const ChatWidget = () => {
@@ -10,6 +9,7 @@ export const ChatWidget = () => {
   const [isTiping, setIsTiping] = useState(false);
   const [currentAssistantMessage, setCurrentAssistantMessage] = useState("");
   const { addMessage, updateLastMessageValue, chat } = useChat();
+  const lastMessageRef = useRef(null);
   const chatContainerRef = useRef(null);
   // const { getNews } = useNew();
 
@@ -25,6 +25,7 @@ export const ChatWidget = () => {
     setMessage("");
     setIsTiping(false);
     const assistantMessagePlaceholder = { value: "...", role: "assistant" };
+
     addMessage(assistantMessagePlaceholder);
     let reply = "";
     try {
@@ -35,7 +36,6 @@ export const ChatWidget = () => {
         },
         question: userMessage,
       });
-
       updateLastMessageValue(reply);
 
       setCurrentAssistantMessage("");
@@ -50,21 +50,18 @@ export const ChatWidget = () => {
       setIsTiping(false);
     }
   }, [message]);
-
   useEffect(() => {
-    if (chatContainerRef.current) {
-      chatContainerRef.current.scrollIntoView({
-        behavior: "smooth",
-        block: "end",
-      });
-    }
-  }, [chat]);
-  useEffect(() => {
-    // También es importante para el mensaje en streaming
-    // Ya que se re-renderiza y el chat debe seguirlo
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop =
         chatContainerRef.current.scrollHeight;
+    }
+  }, [chat]);
+  useEffect(() => {
+    if (lastMessageRef.current) {
+      lastMessageRef.current.scrollIntoView({
+        behavior: "smooth",
+        block: "end",
+      });
     }
   }, [currentAssistantMessage]);
 
@@ -92,134 +89,88 @@ export const ChatWidget = () => {
           flex-direction: column;
           overflow-y: auto;
           align-items: flex-end;
-          background-color: var(--gris-100);
         `}
       >
-        {chat.map((message, index) => (
-          <div
-            key={index}
-            css={css`
-              display: flex;
-              flex-direction: column;
-              width: 100%;
-              align-items: ${message.role === "user"
-                ? "flex-end"
-                : "flex-start"};
-              margin-bottom: 10px;
-            `}
-          >
+        {chat.map((message, index) => {
+          return (
             <div
+              key={index}
               css={css`
                 display: flex;
-                align-items: center;
-                margin-bottom: 5px;
+                flex-direction: column;
+                width: 100%;
+                align-items: ${message.role === "user"
+                  ? "flex-end"
+                  : "flex-start"};
+                margin-bottom: 10px;
               `}
             >
-              <span
+              <div
                 css={css`
-                  font-weight: bold;
-                  margin-right: 5px;
+                  display: flex;
+                  align-items: center;
+                  margin-bottom: 5px;
                 `}
               >
-                {message.role === "user" ? "Tu" : "Assistant"}
-              </span>
+                <span
+                  css={css`
+                    font-weight: bold;
+                    margin-right: 5px;
+                  `}
+                >
+                  {message.role === "user" ? "Tu" : "Assistant"}
+                </span>
+              </div>
+
+              {message.role === "user" && (
+                <Card
+                  variant="outlined"
+                  sx={{
+                    padding: "16px",
+                    borderRadius: "16px 0 24px 16px",
+                    maxWidth: "100%",
+                    wordWrap: "break-word",
+                    marginBottom: "10px",
+                    bgcolor: "primary.main",
+                  }}
+                >
+                  {message.value}
+                </Card>
+              )}
+              {message.role === "assistant" && (
+                <Card
+                  variant="outlined"
+                  sx={{
+                    bgcolor: "background.paper",
+                    padding: "16px",
+                    borderRadius: "0 16px 16px 24px",
+                    maxWidth: "100%",
+                    wordWrap: "break-word",
+                    marginBottom: "10px",
+                  }}
+                >
+                  {message.value}
+                </Card>
+              )}
             </div>
-            <div
-              css={css`
-                background-color: ${message.role === "user"
-                  ? "var(--primary-color)"
-                  : "var(--gris-95)"};
-                color: ${message.role === "user"
-                  ? "var(--gris-100)"
-                  : "var(--gris-0)"};
-                padding: 16px;
-                border-radius: ${message.role === "user"
-                  ? "16px 0px 16px 16px"
-                  : "0px 16px 16px 16px"};
-                max-width: 80%;
-                word-wrap: break-word;
-              `}
-            >
-              {message.role === "user" && message.value}
-              {message.role === "bot" &&
-                message.value?.map((article, index) => (
-                  <div
-                    css={css`
-                      background-color: var(--gris-100);
-                      padding: 16px;
-                      border-radius: 16px;
-                      max-width: 100%;
-                      word-wrap: break-word;
-                      margin-bottom: 10px;
-                      box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
-                    `}
-                    key={index}
-                  >
-                    <div
-                      css={css`
-                        display: flex;
-                        flex-direction: row;
-                        align-items: center;
-                      `}
-                    >
-                      <img
-                        css={css`
-                          border-radius: 8px;
-                          height: auto;
-                          max-width: 200px;
-                          object-fit: cover;
-                        `}
-                        src={article.urlToImage}
-                        alt={article.title}
-                      />
-                      <div
-                        css={css`
-                          margin-left: 10px;
-                          display: flex;
-                          flex-direction: column;
-                        `}
-                      >
-                        <small
-                          css={css`
-                            align-self: flex-end;
-                            margin-bottom: 10px;
-                          `}
-                        >
-                          {new Date(article.publishedAt).toLocaleString()}
-                        </small>
-                        <h3>{article.title}</h3>
-                        <p>{article.description}</p>
-                        <div
-                          css={css`
-                            display: flex;
-                            flex-direction: row;
-                            justify-content: flex-end;
-                          `}
-                        >
-                          <small>{article.source.name}</small>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              {message.role === "assistant" && message.value}
-            </div>
-          </div>
-        ))}
+          );
+        })}
         {currentAssistantMessage && (
-          <div
-            css={css`
-              background-color: var(--gris-100);
-              padding: 16px;
-              border-radius: 16px;
-              max-width: 100%;
-              word-wrap: break-word;
-              margin-bottom: 10px;
-              box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
-            `}
+          <Box
+            ref={lastMessageRef}
+            variant="outlined"
+            sx={{
+              bgcolor: "background.paper",
+              padding: "16px",
+              border: "1px solid var(--border-color)",
+              borderRadius: "0 16px 16px 24px",
+              maxWidth: "100%",
+              wordWrap: "break-word",
+              marginBottom: "10px",
+            }}
           >
             <p>{currentAssistantMessage}</p>
-          </div>
+          </Box>
         )}
       </div>
       <form
@@ -235,17 +186,15 @@ export const ChatWidget = () => {
         `}
         onSubmit={handleSubmit}
       >
-        <textarea
-          css={css`
-            width: 100%;
-            padding: 10px;
-            margin: 0 16px;
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
-            box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
-            resize: none;
-            max-height: 100px;
-          `}
+        <TextField
+          fullWidth
+          multiline
+          size="small"
+          sx={{
+            marginRight: "10px",
+            bgcolor: "background.default",
+            borderRadius: "8px",
+          }}
           id="message"
           name="message"
           value={message}
@@ -258,7 +207,19 @@ export const ChatWidget = () => {
           rows={1}
           placeholder="Escribe tu mensaje..."
         />
-        <Button className={`${isTiping ? "typing" : ""}`} type="submit">
+        <IconButton
+          sx={{
+            color: "text.primary",
+            bgcolor: "primary.main",
+            boxShadow: 1,
+            opacity: 0.3,
+            ":hover": {
+              bgcolor: "primary.dark",
+            },
+          }}
+          className={`${isTiping ? "typing" : ""}`}
+          type="submit"
+        >
           <svg
             xmlns="http://www.w3.org/2000/svg"
             width="24"
@@ -275,7 +236,7 @@ export const ChatWidget = () => {
             <path d="M10 14l11 -11" />
             <path d="M21 3l-6.5 18a.55 .55 0 0 1 -1 0l-3.5 -7l-7 -3.5a.55 .55 0 0 1 0 -1l18 -6.5" />
           </svg>
-        </Button>
+        </IconButton>
       </form>
     </div>
   );
